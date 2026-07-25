@@ -1,0 +1,14 @@
+[
+    "is_cold_start",
+    "geo_velocity_kmh",
+    "geo_velocity_impossible_flag",
+    "resource_novelty",
+    "global_resource_rarity",
+    "device_novelty",
+    "entity_fail_velocity_5m",
+    "ip_fail_velocity_5m",
+    "time_of_day_logprob",
+    "duration_zscore",
+    "avg_sequence_surprise",
+    "session_duration"
+]

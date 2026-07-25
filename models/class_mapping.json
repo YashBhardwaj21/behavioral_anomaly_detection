@@ -1,0 +1,7 @@
+{
+    "0": "brute_force",
+    "1": "device_spoof",
+    "2": "impossible_travel",
+    "3": "lateral_movement",
+    "4": "normal"
+}
