@@ -3,3 +3,8 @@ pandas
 faker
 pyarrow
 fastparquet
+scikit-learn
+lightgbm
+shap
+streamlit
+plotly
