@@ -16,9 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ---------------------------------------------------------------------------
-# MITRE ATT&CK mapping — verified against attack.mitre.org (IT + ICS/OT)
-# ---------------------------------------------------------------------------
+# MITRE ATT&CK mapping
 MITRE_ATTACK_MAP = {
     "brute_force": "T1110 / T0812",
     "lateral_movement": "T1021 / T0866",
@@ -41,9 +39,7 @@ SEVERITY_MAP = {
     "normal": ("benign", "Benign"),
 }
 
-# ---------------------------------------------------------------------------
-# Design tokens + global styling (including fixes for multiselect tags)
-# ---------------------------------------------------------------------------
+# Design tokens + global styling
 STYLE = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -159,9 +155,7 @@ hr{ border-color:var(--border); }
 """
 st.markdown(STYLE, unsafe_allow_html=True)
 
-# ---------------------------------------------------------------------------
 # Helper primitives & UI components
-# ---------------------------------------------------------------------------
 def html(s: str) -> str:
     return re.sub(r">\s+<", "><", " ".join(line.strip() for line in s.strip().splitlines()))
 
@@ -222,9 +216,7 @@ PLOTLY_TEMPLATE = go.layout.Template(
     )
 )
 
-# ---------------------------------------------------------------------------
 # Data loading & Schema resolution
-# ---------------------------------------------------------------------------
 @st.cache_data(show_spinner=False)
 def load_data():
     if not os.path.exists(SCORED_PATH):
@@ -276,9 +268,7 @@ ranked_entities = result["ranked_entities"]
 total_test_events = len(df_full)
 total_true_attacks = int((df_full["label"] != "normal").sum())
 
-# ---------------------------------------------------------------------------
 # Header
-# ---------------------------------------------------------------------------
 st.markdown(
     html(f"""
     <div class="console-header">{icon('shield', 28, '#3FD3C6')}<h1>Behavioral Threat Detection Console</h1></div>
@@ -288,9 +278,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ---------------------------------------------------------------------------
 # Sidebar controls
-# ---------------------------------------------------------------------------
 st.sidebar.markdown('<div class="sidebar-label">Analyst review budget</div>', unsafe_allow_html=True)
 budget_pct = st.sidebar.slider(
     "Percent of daily event volume", min_value=0.5, max_value=10.0, value=1.0, step=0.5,
@@ -319,9 +307,7 @@ if budget_count > explained_coverage:
 
 df_budget = df_full.iloc[: min(budget_count, len(df_full))].copy()
 
-# ---------------------------------------------------------------------------
 # KPI strip
-# ---------------------------------------------------------------------------
 caught = int((df_budget["label"] != "normal").sum())
 recall_val = (caught / total_true_attacks * 100.0) if total_true_attacks else 0.0
 false_pos = int((df_budget["label"] == "normal").sum())
@@ -350,9 +336,7 @@ st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["Alert Queue", "Entity Timeline", "ATT&CK Mapping"])
 
-# ---------------------------------------------------------------------------
 # Tab 1 — Masonry featured cards + Full sortable table
-# ---------------------------------------------------------------------------
 with tab1:
     df_display = df_budget[
         df_budget["predicted_label"].isin(selected_types) & (df_budget[risk_col] >= min_risk)
@@ -393,9 +377,7 @@ with tab1:
                 hide_index=True
             )
 
-# ---------------------------------------------------------------------------
 # Tab 2 — Entity deep dive
-# ---------------------------------------------------------------------------
 with tab2:
     default_entity = ranked_entities[0] if ranked_entities else sorted(df_full["entity_id"].unique())[0]
     selected_entity = st.selectbox(
@@ -443,9 +425,7 @@ with tab2:
                 unsafe_allow_html=True,
             )
 
-# ---------------------------------------------------------------------------
-# Tab 3 — ATT&CK landscape (Fixed Bar Chart Styling)
-# ---------------------------------------------------------------------------
+# Tab 3 — ATT&CK landscape
 with tab3:
     attack_only = df_budget[df_budget["predicted_label"] != "normal"]
     c_left, c_right = st.columns(2)
