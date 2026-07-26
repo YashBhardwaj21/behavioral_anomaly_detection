@@ -36,7 +36,7 @@ class EntityState:
         self.last_lon = None
         self.last_ts = None
         self.seen_resources = set()
-        self.seen_devices = set()  # Added to catch Device Spoofing!
+        self.seen_devices = set()  # Added to catch Device Spoofing
         self.seen_ips = set()       # Track known source IPs per entity
         self.hour_mean = None
         self.hour_var = 1.0
@@ -214,12 +214,11 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         st.seen_ips.add(row.source_ip)
         priors.update(row.resource_accessed)
 
-        # Update 7-day sensitive access tracker (after feature computation, so
-        # the count for this event doesn't include itself — causal)
+        # 7-day sensitive access tracker 
         if global_rarity > 0.5:
             st.sensitive_access_times.append(row.timestamp)
 
-        # EWMA updates for hour and duration (The Concept Drift Engine)
+        # EWMA updates for hour and duration 
         if st.hour_mean is None:
             st.hour_mean, st.hour_var = hour, 9.0
             st.duration_mean, st.duration_var = log_dur, 0.6
@@ -249,7 +248,7 @@ if __name__ == "__main__":
     output_path = os.path.join(data_dir, "model_ready_logs.parquet")
     
     if not os.path.exists(input_path):
-        print(f"Error: Could not find {input_path}. Make sure you ran Phase 1 generator first!")
+        print(f"Error: Could not find {input_path}. Make sure you ran data generator first!")
     else:
         df_raw = pd.read_parquet(input_path)
         df_features = engineer_features(df_raw)
@@ -257,7 +256,7 @@ if __name__ == "__main__":
         os.makedirs(data_dir, exist_ok=True)
         df_features.to_parquet(output_path, index=False)
         
-        print(f"\n--- Phase 2 Complete! Saved {len(df_features):,} rows to {output_path} ---")
+        print(f"\n Processed. Saved {len(df_features):,} rows to {output_path} ---")
         print("\nMean Feature Values by Attack Class (Signal Separation Check):")
         check_cols = [
             "geo_velocity_kmh", "resource_novelty", "global_resource_rarity", 

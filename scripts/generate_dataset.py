@@ -1,13 +1,11 @@
 """
 Synthetic behavioral access-log generator for the anomaly detection PoC.
 
-Design principles (why the data is built this way):
-- Real city geography (not random lat/lon) so distances/travel-times are meaningful.
-- Population concentrated near a few "HQ" cities + a remote-worker tail, like a real org.
+Design principles :
+- Real city geography so distances/travel-times are meaningful.
+- Population concentrated near a few "HQ" cities + a remote-worker tail.
 - Skewed (Zipf/lognormal) distributions for resource access and session duration,
-  because real access logs are never uniform.
-- Per-entity behavioral fingerprints (home geo, device, work-hour center, resource subset)
-  so "normal" is genuinely learnable, and attacks are genuinely a deviation from it.
+- Per-entity behavioral fingerprints so "normal" is genuinely learnable, and attacks are genuinely a deviation from it.
 """
 
 import numpy as np
