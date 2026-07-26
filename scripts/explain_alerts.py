@@ -30,7 +30,7 @@ def _format_reason(feat_name, feat_val, translation_map):
             return translation_map[feat_name]
 
     readable = feat_name.replace("_", " ")
-    return f"{readable.capitalize()} elevated at {feat_val:.2f} (above learned baseline)"
+    return f"{readable.capitalize()} at {feat_val:.2f}, deviating from learned baseline"
 
 
 def generate_local_explanations(
@@ -48,7 +48,7 @@ def generate_local_explanations(
     with open(os.path.join(MODEL_DIR, "feature_names.json")) as f:
         causal_feature_cols = json.load(f)
     with open(os.path.join(MODEL_DIR, "model_input_columns.json")) as f:
-        model_input_cols = json.load(f)  # authoritative: causal feats + risk score, in order
+        model_input_cols = json.load(f)  
     with open(os.path.join(MODEL_DIR, "class_mapping.json")) as f:
         idx_to_class = {int(k): v for k, v in json.load(f).items()}
     class_to_idx = {v: k for k, v in idx_to_class.items()}
@@ -57,7 +57,7 @@ def generate_local_explanations(
     df_alerts = df_scored.iloc[:budget_n].copy()
     print(f"Explaining top {budget_n:,} alerts (of {len(df_scored):,} test events)\n")
 
-    # [2/4] Rebuild the EXACT model input matrix, in the exact column order the classifier was trained on. This is the piece that was missing before and would have caused a shape mismatch.
+    # [2/4] Rebuild the EXACT model input matrix
     print("--- [2/4] Reconstructing model input schema ---")
     risk_col_name = [c for c in model_input_cols if c not in causal_feature_cols]
     assert len(risk_col_name) == 1, (
@@ -74,7 +74,7 @@ def generate_local_explanations(
     print(f"Model input matrix shape: {X_alerts.shape} "
           f"(expected {len(model_input_cols)} columns)\n")
 
-    # [3/4] TreeSHAP — exact, fast for tree ensembles, run only on the alert budget rows (not the full test set) to keep runtime sane.
+    # [3/4] TreeSHAP 
     print("--- [3/4] Running TreeSHAP over the alert budget ---")
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X_alerts)
@@ -88,6 +88,11 @@ def generate_local_explanations(
         "entity_fail_velocity_5m": "{val:.0f} failed auth attempts against this entity in 5 minutes",
         "avg_sequence_surprise": "Highly abnormal command/action sequence for this entity",
         "duration_zscore": "Session length {val:.1f} std deviations from this entity's baseline",
+        "session_duration": "Session duration of {val:.1f} min deviates from this entity's baseline",
+        "auth_method_risk": "Weak authentication method used (risk level {val:.0f}/3)",
+        "ip_novelty": "Login from a previously unseen source IP address",
+        "sensitive_access_count_7d": "{val:.0f} rare/sensitive resource accesses in the trailing 7-day window",
+        "sequence_anomaly_score": "LSTM autoencoder flagged abnormal command sequence (reconstruction error {val:.2f})",
         risk_col_name: "Stage-1 unsupervised risk score reached {val:.1f}/100",
     }
 

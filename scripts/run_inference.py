@@ -74,6 +74,17 @@ def run_pipeline(cfg=CONFIG):
     print(f"Rows: {len(df):,} | Columns: {df.shape[1]} | "
           f"Range: {df[ts_col].min()} -> {df[ts_col].max()}\n")
 
+    # Merge pre-computed LSTM sequence anomaly scores 
+    seq_scores_path = os.path.join(output_dir, "sequence_scores.parquet")
+    if os.path.exists(seq_scores_path):
+        seq_df = pd.read_parquet(seq_scores_path)
+        df = df.merge(seq_df[["event_id", "sequence_anomaly_score"]], on="event_id", how="left")
+        df["sequence_anomaly_score"] = df["sequence_anomaly_score"].fillna(0.0)
+        print(f"Merged LSTM sequence scores for {len(seq_df):,} events")
+    else:
+        print(f"WARNING: {seq_scores_path} not found — run sequence_model.py first")
+        df["sequence_anomaly_score"] = 0.0
+
     ignore_cols = ["event_id", "entity_id", "entity_type", ts_col, label_col]
     feature_cols = [c for c in df.columns
                      if c not in ignore_cols and np.issubdtype(df[c].dtype, np.number)]
