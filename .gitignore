@@ -5,3 +5,6 @@ models/isolation_forest.pkl
 models/lgbm_classifier.pkl
 models/risk_scaler.pkl
 models/scored_test_logs.parquet
+models/sequence_scores.parquet
+*.pt
+

@@ -5,6 +5,8 @@ pyarrow
 fastparquet
 scikit-learn
 lightgbm
+joblib
 shap
 streamlit
 plotly
+torch
