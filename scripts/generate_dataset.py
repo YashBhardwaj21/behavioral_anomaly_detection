@@ -67,6 +67,10 @@ AUTH_WEIGHTS = [0.55, 0.30, 0.10, 0.05]
 
 OS_FINGERPRINTS = ["Windows11-x64", "macOS-14", "Ubuntu-22.04", "iOS-17", "Android-14"]
 
+# Shared campaign IPs for credential stuffing — reused across entities so the
+# "few IPs, many targets" signature appears in ip_fail_velocity_5m
+CREDENTIAL_STUFFING_IPS = [fake.ipv4_public() for _ in range(2)]
+
 
 def haversine_km(lat1, lon1, lat2, lon2):
     lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
@@ -321,6 +325,65 @@ def inject_device_spoofing(profile, base_events, n_cases=1):
     return injected
 
 
+def inject_credential_stuffing(profile, base_events, n_cases=1):
+    """Credential stuffing: a shared campaign IP sprays login attempts against
+    this entity. Distinguished from brute force by the shared CREDENTIAL_STUFFING_IPS
+    that appear across many different entities — the 'few IPs, many targets' signature."""
+    injected = []
+    for _ in range(n_cases):
+        attacker_ip = rng.choice(CREDENTIAL_STUFFING_IPS)
+        anchor_ts = base_events[rng.integers(0, len(base_events))]["timestamp"]
+        base_ts = anchor_ts + timedelta(seconds=float(rng.uniform(30, 300)))
+        n_attempts = int(rng.integers(2, 5))  # fewer per-entity than brute force
+        elapsed = 0.0
+        for i in range(n_attempts):
+            elapsed += float(rng.uniform(3, 15))
+            ts = base_ts + timedelta(seconds=elapsed)
+            success = (i == n_attempts - 1) and rng.random() < 0.15
+            event = {
+                **_normal_event_template(profile, ts),
+                "source_ip": attacker_ip,
+                "auth_result": "success" if success else "failure",
+                "label": "credential_stuffing",
+            }
+            if not success:
+                event["session_duration"] = float(rng.uniform(0.02, 0.2))
+            injected.append(event)
+    return injected
+
+
+def inject_low_and_slow_exfiltration(profile, base_events, n_cases=1):
+    """Low-and-slow exfiltration: an insider or compromised credential gradually
+    accesses sensitive/rare resources over days, during off-hours, with short
+    sessions. Uses the entity's own device and IP to avoid triggering
+    device/IP novelty — the signal must come from the aggregated sensitive_access_count_7d
+    feature, not from any single event in isolation."""
+    injected = []
+    for _ in range(n_cases):
+        anchor_ts = base_events[rng.integers(0, len(base_events))]["timestamp"]
+        n_days = int(rng.integers(5, 15))
+        targets = list(rng.choice(
+            SENSITIVE_RESOURCES,
+            size=min(n_days, len(SENSITIVE_RESOURCES)),
+            replace=(len(SENSITIVE_RESOURCES) < n_days),
+        ))
+        for day_offset, resource in enumerate(targets):
+            off_hour = float(rng.uniform(1.0, 5.0))  # 1-5 AM
+            ts = anchor_ts + timedelta(days=day_offset, hours=off_hour)
+            injected.append({
+                **_normal_event_template(profile, ts),
+                "resource_accessed": resource,
+                "session_duration": float(rng.uniform(0.5, 3.0)),  # quick grabs
+                "command_sequence": "|".join(list(rng.choice(
+                    SENSITIVE_RESOURCES,
+                    size=min(3, len(SENSITIVE_RESOURCES)),
+                    replace=False,
+                ))),
+                "label": "low_and_slow",
+            })
+    return injected
+
+
 def _normal_event_template(profile, ts):
     resource = zipf_choice(profile.typical_resources, 1)[0]
     return {
@@ -359,18 +422,22 @@ def generate_dataset(total_rows=200_000, anomaly_rate=0.02, cold_start_n=20):
     # inject attacks on a random subset of entities, sized to hit target anomaly_rate
     n_anomalous_entities = max(4, int(len(entities) * 0.65))
     attacked = rng.choice(entities, size=n_anomalous_entities, replace=False)
-    injectors = [inject_impossible_travel, inject_brute_force, inject_lateral_movement, inject_device_spoofing]
+    injectors = [
+        inject_impossible_travel, inject_brute_force, inject_lateral_movement,
+        inject_device_spoofing, inject_credential_stuffing, inject_low_and_slow_exfiltration,
+    ]
 
     for i, profile in enumerate(attacked):
         injector = injectors[i % len(injectors)]
         entity_events = [e for e in all_events if e["entity_id"] == profile.entity_id]
         if injector in [inject_impossible_travel, inject_device_spoofing]:
-            cases = int(rng.integers(8, 15))  
-        elif injector == inject_lateral_movement:
-            cases = int(rng.integers(3, 6))  
-        else:
-            cases = int(rng.integers(2, 4))  
-            
+            cases = int(rng.integers(8, 15))
+        elif injector in [inject_lateral_movement, inject_credential_stuffing]:
+            cases = int(rng.integers(3, 6))
+        elif injector == inject_low_and_slow_exfiltration:
+            cases = int(rng.integers(2, 4))
+        else:  # brute_force
+            cases = int(rng.integers(2, 4))
         all_events.extend(injector(profile, entity_events, n_cases=cases))
 
     for _ in range(cold_start_n):
