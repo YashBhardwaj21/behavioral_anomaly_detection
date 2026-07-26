@@ -22,6 +22,8 @@ MITRE_ATTACK_MAP = {
     "lateral_movement": "T1021 / T0866",
     "impossible_travel": "T1078.004 / T0859",
     "device_spoof": "T1563 / T0830",
+    "credential_stuffing": "T1110.004 / T0812",
+    "low_and_slow": "T1048 / T0882",
     "normal": "—",
 }
 MITRE_ATTACK_NAMES = {
@@ -29,6 +31,8 @@ MITRE_ATTACK_NAMES = {
     "lateral_movement": "Remote Services · Exploitation of Remote Services",
     "impossible_travel": "Cloud Accounts · Valid Accounts",
     "device_spoof": "Session Hijacking · Adversary-in-the-Middle",
+    "credential_stuffing": "Credential Stuffing · Default Credentials",
+    "low_and_slow": "Exfiltration Over Alt Protocol · Theft of Operational Info",
     "normal": "Baseline traffic",
 }
 SEVERITY_MAP = {
@@ -36,6 +40,8 @@ SEVERITY_MAP = {
     "lateral_movement": ("critical", "Critical"),
     "impossible_travel": ("high", "High"),
     "device_spoof": ("medium", "Medium-High"),
+    "credential_stuffing": ("high", "High"),
+    "low_and_slow": ("critical", "Critical"),
     "normal": ("benign", "Benign"),
 }
 
@@ -393,7 +399,8 @@ with tab2:
             title=f"Risk trajectory — {selected_entity}",
             color_discrete_map={"normal": "#3ADD8C", "brute_force": "#FF4D6D",
                                 "impossible_travel": "#FF8A3D", "lateral_movement": "#FFCB47",
-                                "device_spoof": "#3FD3C6"},
+                                "device_spoof": "#3FD3C6", "credential_stuffing": "#FF4D6D",
+                                "low_and_slow": "#7C8595"},
         )
         fig.update_layout(template=PLOTLY_TEMPLATE, yaxis_title="Risk score", xaxis_title=None, height=380)
         st.plotly_chart(fig, use_container_width=True)
