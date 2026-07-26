@@ -9,6 +9,8 @@ COLD_START_N = 20
 MAX_PLAUSIBLE_KMH = 1000.0
 EWMA_ALPHA = 0.05
 FAIL_WINDOW_SECONDS = 300
+SENSITIVE_WINDOW_SECONDS = 7 * 24 * 3600  # 7-day trailing window for rare-resource access count
+AUTH_METHOD_RISK = {"biometric": 0, "certificate": 1, "token": 2, "password": 3}
 
 
 def haversine_km(lat1, lon1, lat2, lon2):
@@ -35,6 +37,7 @@ class EntityState:
         self.last_ts = None
         self.seen_resources = set()
         self.seen_devices = set()  # Added to catch Device Spoofing!
+        self.seen_ips = set()       # Track known source IPs per entity
         self.hour_mean = None
         self.hour_var = 1.0
         self.duration_mean = None  # Added for running session duration Z-score!
@@ -42,6 +45,7 @@ class EntityState:
         self.transition_counts = defaultdict(lambda: defaultdict(int))
         self.last_action = None
         self.fail_times = deque()  # Trailing window of failed-auth timestamps
+        self.sensitive_access_times = deque()  # Trailing 7-day window of rare resource accesses
 
 
 class GlobalPriors:
@@ -125,6 +129,23 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
         entity_fail_velocity = len(st.fail_times)
         ip_fail_velocity = len(ip_fail_times[row.source_ip])
 
+        # 4b. Auth Method Risk (ordinal encoding by security strength)
+        auth_method_risk = AUTH_METHOD_RISK.get(getattr(row, 'auth_method', 'password'), 3)
+
+        # 4c. IP Novelty (new source IP for this entity)
+        if is_cold_start:
+            ip_novelty = 0.0
+        else:
+            ip_novelty = 0.0 if row.source_ip in st.seen_ips else 1.0
+
+        # 4d. Sensitive/Rare Resource Access Count (trailing 7-day window)
+        # Prune entries older than 7 days, then count. The aggregated signal
+        # is what catches low-and-slow exfiltration — no single event looks
+        # unusual, but the cumulative pattern over days does.
+        while st.sensitive_access_times and (row.timestamp - st.sensitive_access_times[0]).total_seconds() > SENSITIVE_WINDOW_SECONDS:
+            st.sensitive_access_times.popleft()
+        sensitive_access_count_7d = len(st.sensitive_access_times)
+
         # 5. Time-of-Day Probability (EWMA Drift-Tolerant)
         hour = row.timestamp.hour + (row.timestamp.minute / 60.0)
         if is_cold_start or st.hour_mean is None:
@@ -181,13 +202,22 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
             "duration_zscore": duration_zscore,
             "avg_sequence_surprise": avg_seq_surprise,
             "session_duration": row.session_duration,
+            "auth_method_risk": auth_method_risk,
+            "ip_novelty": ip_novelty,
+            "sensitive_access_count_7d": sensitive_access_count_7d,
         })
 
         st.n_events += 1
         st.last_lat, st.last_lon, st.last_ts = row.geo_lat, row.geo_lon, row.timestamp
         st.seen_resources.add(row.resource_accessed)
         st.seen_devices.add(row.device_fingerprint)
+        st.seen_ips.add(row.source_ip)
         priors.update(row.resource_accessed)
+
+        # Update 7-day sensitive access tracker (after feature computation, so
+        # the count for this event doesn't include itself — causal)
+        if global_rarity > 0.5:
+            st.sensitive_access_times.append(row.timestamp)
 
         # EWMA updates for hour and duration (The Concept Drift Engine)
         if st.hour_mean is None:
@@ -231,6 +261,7 @@ if __name__ == "__main__":
         print("\nMean Feature Values by Attack Class (Signal Separation Check):")
         check_cols = [
             "geo_velocity_kmh", "resource_novelty", "global_resource_rarity", 
-            "device_novelty", "ip_fail_velocity_5m", "avg_sequence_surprise", "duration_zscore"
+            "device_novelty", "ip_fail_velocity_5m", "avg_sequence_surprise", "duration_zscore",
+            "auth_method_risk", "ip_novelty", "sensitive_access_count_7d",
         ]
         print(df_features.groupby("label")[check_cols].mean().round(3))
