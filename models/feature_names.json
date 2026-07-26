@@ -10,5 +10,9 @@
     "time_of_day_logprob",
     "duration_zscore",
     "avg_sequence_surprise",
-    "session_duration"
+    "session_duration",
+    "auth_method_risk",
+    "ip_novelty",
+    "sensitive_access_count_7d",
+    "sequence_anomaly_score"
 ]

@@ -11,5 +11,9 @@
     "duration_zscore",
     "avg_sequence_surprise",
     "session_duration",
+    "auth_method_risk",
+    "ip_novelty",
+    "sensitive_access_count_7d",
+    "sequence_anomaly_score",
     "unsupervised_risk_score"
 ]
